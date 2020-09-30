@@ -2,30 +2,36 @@ body,
 html {
   height: 100%;
   margin: 0;
-  background: #0310EA;
-  background: -webkit-linear-gradient(to right, #560A86, #7122FA, #560A86);
-  background: linear-gradient(to right, #560A86, #7122FA, #560A86);
+  background: #0310ea;
+  background: -webkit-linear-gradient(to right, #560a86, #7122fa, #560a86);
+  background: linear-gradient(to right, #560a86, #7122fa, #560a86);
 }
 
-#app{
-    height: 100%;
+#app {
+  height: 100%;
 }
 
 .chat {
+  margin: 15px;
+}
+
+.room,
+.form {
   margin-top: auto;
   margin-bottom: auto;
 }
+
 .card {
   height: 500px;
   border-radius: 15px;
   background-color: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255,255,255, .2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.msg_head{
-    color: #FFF;
-    text-align: center;
-    font-size: 26px;
+.msg_head {
+  color: #fff;
+  text-align: center;
+  font-size: 26px;
 }
 
 .msg_card_body {
@@ -35,6 +41,16 @@ html {
   border-radius: 15px 15px 0 0;
   border-bottom: 0;
 }
+
+.card-close {
+  font-size: 0.5em;
+  text-decoration: underline;
+  float: right;
+  position: absolute;
+  right: 15px;
+  cursor: pointer;
+}
+
 .card-footer {
   border-radius: 0 0 15px 15px;
   border-top: 0;
@@ -70,17 +86,26 @@ html {
   margin-left: 10px;
   border-radius: 25px;
   background-color: #82ccdd;
-  padding: 10px;
+  padding: 10px 15px;
   position: relative;
+  min-width: 100px;
+  line-height: 1.2rem;
 }
 .msg_cotainer_send {
   margin-top: auto;
   margin-bottom: auto;
   margin-right: 10px;
   border-radius: 25px;
-  background-color: #75D5FD;
+  background-color: #75d5fd;
   padding: 10px;
   position: relative;
+}
+
+.msg_name {
+  display: block;
+  font-size: 0.8em;
+  font-style: italic;
+  color: #545454;
 }
 
 .msg_head {

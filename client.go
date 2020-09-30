@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -38,13 +39,17 @@ type Client struct {
 	conn     *websocket.Conn
 	wsServer *WsServer
 	send     chan []byte
+	Name     string `json:"name"`
+	rooms    map[*Room]bool
 }
 
-func newClient(conn *websocket.Conn, wsServer *WsServer) *Client {
+func newClient(conn *websocket.Conn, wsServer *WsServer, name string) *Client {
 	return &Client{
+		Name:     name,
 		conn:     conn,
 		wsServer: wsServer,
 		send:     make(chan []byte, 256),
+		rooms:    make(map[*Room]bool),
 	}
 
 }
@@ -68,7 +73,7 @@ func (client *Client) readPump() {
 			break
 		}
 
-		client.wsServer.broadcast <- jsonMessage
+		client.handleNewMessage(jsonMessage)
 	}
 
 }
@@ -116,6 +121,9 @@ func (client *Client) writePump() {
 
 func (client *Client) disconnect() {
 	client.wsServer.unregister <- client
+	for room := range client.rooms {
+		room.unregister <- client
+	}
 	close(client.send)
 	client.conn.Close()
 }
@@ -123,16 +131,73 @@ func (client *Client) disconnect() {
 // ServeWs handles websocket requests from clients requests.
 func ServeWs(wsServer *WsServer, w http.ResponseWriter, r *http.Request) {
 
+	name, ok := r.URL.Query()["name"]
+
+	if !ok || len(name[0]) < 1 {
+		log.Println("Url Param 'name' is missing")
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	client := newClient(conn, wsServer)
+	client := newClient(conn, wsServer, name[0])
 
 	go client.writePump()
 	go client.readPump()
 
 	wsServer.register <- client
+}
+
+func (client *Client) handleNewMessage(jsonMessage []byte) {
+
+	var message Message
+	if err := json.Unmarshal(jsonMessage, &message); err != nil {
+		log.Printf("Error on unmarshal JSON message %s", err)
+	}
+
+	message.Sender = client
+
+	switch message.Action {
+	case SendMessageAction:
+		roomName := message.Target
+		if room := client.wsServer.findRoomByName(roomName); room != nil {
+			room.broadcast <- &message
+		}
+
+	case JoinRoomAction:
+		client.handleJoinRoomMessage(message)
+
+	case LeaveRoomAction:
+		client.handleLeaveRoomMessage(message)
+	}
+}
+
+func (client *Client) handleJoinRoomMessage(message Message) {
+	roomName := message.Message
+
+	room := client.wsServer.findRoomByName(roomName)
+	if room == nil {
+		room = client.wsServer.createRoom(roomName)
+	}
+
+	client.rooms[room] = true
+
+	room.register <- client
+}
+
+func (client *Client) handleLeaveRoomMessage(message Message) {
+	room := client.wsServer.findRoomByName(message.Message)
+	if _, ok := client.rooms[room]; ok {
+		delete(client.rooms, room)
+	}
+
+	room.unregister <- client
+}
+
+func (client *Client) GetName() string {
+	return client.Name
 }

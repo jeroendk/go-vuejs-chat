@@ -27,38 +27,71 @@
 
   <body>
     <div id="app">
-      <div class="container-fluid h-100">
+      <div class="container h-100">
         <div class="row justify-content-center h-100">
-          <div class="col-md-8 col-xl-6 chat">
+          <div class="col-12 form" v-if="!ws">
+              <div class="input-group">
+                <input
+                  v-model="user.name"
+                  class="form-control name"
+                  placeholder="Please fill in your (nick)name"
+                  @keyup.enter.exact="connect"
+                ></input>
+                <div class="input-group-append">
+                  <span class="input-group-text send_btn" @click="connect">
+                  >
+                  </span>
+                </div>
+            </div>
+          </div>
+
+          <div class="col-12 room" v-if="ws != null">
+            <div class="input-group">
+              <input
+                v-model="roomInput"
+                class="form-control name"
+                placeholder="Type the room you want to join"
+                @keyup.enter.exact="joinRoom"
+              ></input>
+              <div class="input-group-append">
+                <span class="input-group-text send_btn" @click="joinRoom">
+                >
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat" v-for="(room, key) in rooms" :key="key">
             <div class="card">
               <div class="card-header msg_head">
                 <div class="d-flex bd-highlight justify-content-center">
-                  Chat
+                  {{room.name}}
+                  <span class="card-close" @click="leaveRoom(room)">leave</span>
                 </div>
               </div>
               <div class="card-body msg_card_body">
                 <div
-                  v-for="(message, key) in messages"
+                  v-for="(message, key) in room.messages"
                   :key="key"
                   class="d-flex justify-content-start mb-4"
                 >
                   <div class="msg_cotainer">
                     {{message.message}}
-                    <span class="msg_time"></span>
+                    <span class="msg_name">{{message.sender.name}}</span>
                   </div>
                 </div>
               </div>
               <div class="card-footer">
                 <div class="input-group">
                   <textarea
-                    v-model="newMessage"
+                    v-model="room.newMessage"
                     name=""
                     class="form-control type_msg"
                     placeholder="Type your message..."
-                    @keyup.enter.exact="sendMessage"
+                    @keyup.enter.exact="sendMessage(room)"
                   ></textarea>
                   <div class="input-group-append">
-                    <span class="input-group-text send_btn" @click="sendMessage"
+                    <span class="input-group-text send_btn" @click="sendMessage(room)"
                       >></span
                     >
                   </div>
