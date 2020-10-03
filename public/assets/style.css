@@ -28,6 +28,15 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.card.profile {
+  height:150px;
+  margin: 15px;
+}
+
+.card.profile .card-header{
+  color: #FFF;
+}
+
 .msg_head {
   color: #fff;
   text-align: center;

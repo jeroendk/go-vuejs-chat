@@ -44,7 +44,16 @@
                 </div>
             </div>
           </div>
-
+          <div class="col-12 ">
+            <div class="row">
+              <div class="col-2 card profile" v-for="user in users" :key="user.id">
+                <div class="card-header">{{user.name}}</div>
+                <div class="card-body">
+                    <button class="btn btn-primary" @click="joinPrivateRoom(user)">Send Message</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="col-12 room" v-if="ws != null">
             <div class="input-group">
               <input
