@@ -2,16 +2,18 @@ var app = new Vue({
   el: '#app',
   data: {
     ws: null,
-    serverUrl: "ws://localhost:8080/ws",
+    serverUrl: "ws://" + location.host + "/ws",
     roomInput: null,
     rooms: [],
     user: {
       name: ""
     },
-    users: []
+    users: [],
+    initialReconnectDelay: 1000,
+    currentReconnectDelay: 0,
+    maxReconnectDelay: 16000
   },
   mounted: function () {
-
   },
   methods: {
     connect() {
@@ -21,9 +23,27 @@ var app = new Vue({
       this.ws = new WebSocket(this.serverUrl + "?name=" + this.user.name);
       this.ws.addEventListener('open', (event) => { this.onWebsocketOpen(event) });
       this.ws.addEventListener('message', (event) => { this.handleNewMessage(event) });
+      this.ws.addEventListener('close', (event) => { this.onWebsocketClose(event) });
     },
     onWebsocketOpen() {
       console.log("connected to WS!");
+      this.currentReconnectDelay = 1000;
+    },
+
+    onWebsocketClose() {
+      this.ws = null;
+
+      setTimeout(() => {
+        this.reconnectToWebsocket();
+      }, this.currentReconnectDelay);
+
+    },
+
+    reconnectToWebsocket() {
+      if (this.currentReconnectDelay < this.maxReconnectDelay) {
+        this.currentReconnectDelay *= 2;
+      }
+      this.connectToWebsocket();
     },
 
     handleNewMessage(event) {
