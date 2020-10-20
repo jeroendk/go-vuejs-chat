@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jeroendk/chatApplication/config"
+	"github.com/jeroendk/chatApplication/models"
 
 	"github.com/gorilla/websocket"
 )
@@ -206,7 +208,7 @@ func (client *Client) handleLeaveRoomMessage(message Message) {
 
 func (client *Client) handleJoinRoomPrivateMessage(message Message) {
 
-	target := client.wsServer.findClientByID(message.Message)
+	target := client.wsServer.findUserByID(message.Message)
 
 	if target == nil {
 		return
@@ -215,12 +217,17 @@ func (client *Client) handleJoinRoomPrivateMessage(message Message) {
 	// create unique room name combined to the two IDs
 	roomName := message.Message + client.ID.String()
 
-	client.joinRoom(roomName, target)
-	target.joinRoom(roomName, client)
+	// Join room
+	joinedRoom := client.joinRoom(roomName, target)
+
+	// Invite target user
+	if joinedRoom != nil {
+		client.inviteTargetUser(target, joinedRoom)
+	}
 
 }
 
-func (client *Client) joinRoom(roomName string, sender *Client) {
+func (client *Client) joinRoom(roomName string, sender models.User) *Room {
 
 	room := client.wsServer.findRoomByName(roomName)
 	if room == nil {
@@ -229,7 +236,7 @@ func (client *Client) joinRoom(roomName string, sender *Client) {
 
 	// Don't allow to join private rooms through public room message
 	if sender == nil && room.Private {
-		return
+		return nil
 	}
 
 	if !client.isInRoom(room) {
@@ -239,6 +246,8 @@ func (client *Client) joinRoom(roomName string, sender *Client) {
 
 		client.notifyRoomJoined(room, sender)
 	}
+
+	return room
 
 }
 
@@ -250,7 +259,20 @@ func (client *Client) isInRoom(room *Room) bool {
 	return false
 }
 
-func (client *Client) notifyRoomJoined(room *Room, sender *Client) {
+func (client *Client) inviteTargetUser(target models.User, room *Room) {
+	inviteMessage := &Message{
+		Action:  JoinRoomPrivateAction,
+		Message: target.GetId(),
+		Target:  room,
+		Sender:  client,
+	}
+
+	if err := config.Redis.Publish(ctx, PubSubGeneralChannel, inviteMessage.encode()).Err(); err != nil {
+		log.Println(err)
+	}
+}
+
+func (client *Client) notifyRoomJoined(room *Room, sender models.User) {
 	message := Message{
 		Action: RoomJoinedAction,
 		Target: room,
@@ -258,6 +280,10 @@ func (client *Client) notifyRoomJoined(room *Room, sender *Client) {
 	}
 
 	client.send <- message.encode()
+}
+
+func (client *Client) GetId() string {
+	return client.ID.String()
 }
 
 func (client *Client) GetName() string {

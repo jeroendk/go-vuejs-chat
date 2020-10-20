@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
+
+	"github.com/jeroendk/chatApplication/config"
 
 	"github.com/google/uuid"
 )
@@ -33,6 +36,8 @@ func NewRoom(name string, private bool) *Room {
 
 // RunRoom runs our room, accepting various requests
 func (room *Room) RunRoom() {
+	go room.subscribeToRoomMessages()
+
 	for {
 		select {
 
@@ -43,7 +48,7 @@ func (room *Room) RunRoom() {
 			room.unregisterClientInRoom(client)
 
 		case message := <-room.broadcast:
-			room.broadcastToClientsInRoom(message.encode())
+			room.publishRoomMessage(message.encode())
 		}
 
 	}
@@ -68,6 +73,24 @@ func (room *Room) broadcastToClientsInRoom(message []byte) {
 	}
 }
 
+func (room *Room) publishRoomMessage(message []byte) {
+	err := config.Redis.Publish(ctx, room.GetName(), message).Err()
+
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (room *Room) subscribeToRoomMessages() {
+	pubsub := config.Redis.Subscribe(ctx, room.GetName())
+
+	ch := pubsub.Channel()
+
+	for msg := range ch {
+		room.broadcastToClientsInRoom([]byte(msg.Payload))
+	}
+}
+
 func (room *Room) notifyClientJoined(client *Client) {
 	message := &Message{
 		Action:  SendMessageAction,
@@ -75,7 +98,7 @@ func (room *Room) notifyClientJoined(client *Client) {
 		Message: fmt.Sprintf(welcomeMessage, client.GetName()),
 	}
 
-	room.broadcastToClientsInRoom(message.encode())
+	room.publishRoomMessage(message.encode())
 }
 
 func (room *Room) GetId() string {
@@ -84,4 +107,8 @@ func (room *Room) GetId() string {
 
 func (room *Room) GetName() string {
 	return room.Name
+}
+
+func (room *Room) GetPrivate() bool {
+	return room.Private
 }
