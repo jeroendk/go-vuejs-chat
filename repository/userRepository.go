@@ -8,8 +8,10 @@ import (
 )
 
 type User struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 func (user *User) GetId() string {
@@ -73,4 +75,21 @@ func (repo *UserRepository) GetAllUsers() []models.User {
 	}
 
 	return users
+}
+
+func (repo *UserRepository) FindUserByUsername(username string) *User {
+
+	row := repo.Db.QueryRow("SELECT id, name, username, password FROM user where username = ? LIMIT 1", username)
+
+	var user User
+
+	if err := row.Scan(&user.Id, &user.Name, &user.Username, &user.Password); err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		panic(err)
+	}
+
+	return &user
+
 }

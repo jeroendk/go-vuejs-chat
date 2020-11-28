@@ -28,13 +28,25 @@ func InitDB() *sql.DB {
 	sqlStmt = `	
 	CREATE TABLE IF NOT EXISTS user (
 		id VARCHAR(255) NOT NULL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL
+		name VARCHAR(255) NOT NULL,
+		username VARCHAR(255)  NULL,
+		password VARCHARR(255)  NULL
 	);
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
 		log.Fatal("%q: %s\n", err, sqlStmt)
 	}
+
+	// password, _ := auth.GeneratePassword("password")
+
+	// sqlStmt = `INSERT into user (id, name, username, password) VALUES
+	// 				('` + uuid.New().String() + `', 'john', 'john','` + password + `')`
+
+	// _, err = db.Exec(sqlStmt)
+	// if err != nil {
+	// 	log.Fatal("%q: %s\n", err, sqlStmt)
+	// }
 
 	return db
 }

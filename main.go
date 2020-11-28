@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/jeroendk/chatApplication/auth"
 	"github.com/jeroendk/chatApplication/config"
 	"github.com/jeroendk/chatApplication/repository"
 )
@@ -20,12 +21,18 @@ func main() {
 	db := config.InitDB()
 	defer db.Close()
 
-	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, &repository.UserRepository{Db: db})
+	userRepository := &repository.UserRepository{Db: db}
+
+	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, userRepository)
 	go wsServer.Run()
 
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	api := &API{UserRepository: userRepository}
+
+	http.HandleFunc("/ws", auth.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		ServeWs(wsServer, w, r)
-	})
+	}))
+
+	http.HandleFunc("/api/login", api.HandleLogin)
 
 	fs := http.FileServer(http.Dir("./public"))
 	http.Handle("/", fs)
