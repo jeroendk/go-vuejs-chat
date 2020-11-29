@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jeroendk/chatApplication/auth"
 	"github.com/jeroendk/chatApplication/config"
 	"github.com/jeroendk/chatApplication/models"
 
@@ -48,9 +49,9 @@ type Client struct {
 	rooms    map[*Room]bool
 }
 
-func newClient(conn *websocket.Conn, wsServer *WsServer, name string) *Client {
-	return &Client{
-		ID:       uuid.New(),
+func newClient(conn *websocket.Conn, wsServer *WsServer, name string, ID string) *Client {
+
+	client := &Client{
 		Name:     name,
 		conn:     conn,
 		wsServer: wsServer,
@@ -58,6 +59,11 @@ func newClient(conn *websocket.Conn, wsServer *WsServer, name string) *Client {
 		rooms:    make(map[*Room]bool),
 	}
 
+	if ID != "" {
+		client.ID, _ = uuid.Parse(ID)
+	}
+
+	return client
 }
 
 func (client *Client) readPump() {
@@ -137,12 +143,13 @@ func (client *Client) disconnect() {
 // ServeWs handles websocket requests from clients requests.
 func ServeWs(wsServer *WsServer, w http.ResponseWriter, r *http.Request) {
 
-	name, ok := r.URL.Query()["name"]
-
-	if !ok || len(name[0]) < 1 {
-		log.Println("Url Param 'name' is missing")
+	userCtxValue := r.Context().Value(auth.UserContextKey)
+	if userCtxValue == nil {
+		log.Println("Not authenticated")
 		return
 	}
+
+	user := userCtxValue.(models.User)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -150,7 +157,7 @@ func ServeWs(wsServer *WsServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := newClient(conn, wsServer, name[0])
+	client := newClient(conn, wsServer, user.GetName(), user.GetId())
 
 	go client.writePump()
 	go client.readPump()

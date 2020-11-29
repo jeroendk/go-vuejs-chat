@@ -1,109 +1,123 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Chat</title>
-    <!-- Load required Bootstrap and BootstrapVue CSS -->
-    <link
-      type="text/css"
-      rel="stylesheet"
-      href="//unpkg.com/bootstrap/dist/css/bootstrap.min.css"
-    />
-    <link
-      type="text/css"
-      rel="stylesheet"
-      href="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css"
-    />
-    <link type="text/css" rel="stylesheet" href="assets/style.css" />
-    <!-- Load polyfills to support older browsers -->
-    <script
-      src="//polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver"
-      crossorigin="anonymous"
+
+<head>
+  <title>Chat</title>
+  <!-- Load required Bootstrap and BootstrapVue CSS -->
+  <link 
+  type="text/css" 
+  rel="stylesheet" 
+  href="//unpkg.com/bootstrap/dist/css/bootstrap.min.css" 
+  />
+  <link 
+  type="text/css" 
+  rel="stylesheet" 
+  href="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" 
+  />
+  <link type="text/css" rel="stylesheet" href="assets/style.css" />
+  <!-- Load polyfills to support older browsers -->
+  <script
+    src="//polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver"
+    crossorigin="anonymous"
     ></script>
 
-    <!-- Load Vue followed by BootstrapVue -->
-    <script src="https://unpkg.com/vue"></script>
-    <script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
-  </head>
+  <!-- Load Vue followed by BootstrapVue -->
+  <script src="https://unpkg.com/vue"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+</head>
 
-  <body>
-    <div id="app">
-      <div class="container h-100">
-        <div class="row justify-content-center h-100">
-          <div class="col-12 form" v-if="!ws">
-              <div class="input-group">
-                <input
-                  v-model="user.name"
-                  class="form-control name"
-                  placeholder="Please fill in your (nick)name"
-                  @keyup.enter.exact="connect"
-                ></input>
-                <div class="input-group-append">
-                  <span class="input-group-text send_btn" @click="connect">
-                  >
-                  </span>
-                </div>
+<body>
+  <div id="app">
+    <div class="container h-100">
+      <div class="row justify-content-center h-100">
+        <div class="col-12 form" v-if="!ws">
+          <h2>Anonymous log-in</h2>
+          <div class="input-group">
+            <input v-model="user.name" class="form-control name" placeholder="Please fill in your (nick)name"
+              @keyup.enter.exact="connect"></input>
+            <div class="input-group-append">
+              <span class="input-group-text send_btn" @click="connect">
+                >
+              </span>
             </div>
           </div>
-          <div class="col-12 ">
-            <div class="row">
-              <div class="col-2 card profile" v-for="user in users" :key="user.id">
-                <div class="card-header">{{user.name}}</div>
-                <div class="card-body">
-                    <button class="btn btn-primary" @click="joinPrivateRoom(user)">Send Message</button>
-                </div>
+          <h2>Registered users</h2>
+
+          <div class="input-group">
+            <input v-model="user.username" class="form-control username" placeholder="username"></input>
+
+            <input v-model="user.password" type="password" class="form-control password" placeholder="password"></input>
+
+            <div class="input-group-append">
+              <span class="input-group-text send_btn" @click="login">
+                >
+              </span>
+            </div>
+          </div>
+
+          <div class="alert alert-danger" role="alert" v-show="loginError">
+            {{loginError}}
+          </div>
+
+        </div>
+        <div class="col-12 ">
+          <div class="row">
+            <div class="col-2 card profile" v-for="user in users" :key="user.id">
+              <div class="card-header">{{user.name}}</div>
+              <div class="card-body">
+                <button class="btn btn-primary" @click="joinPrivateRoom(user)">Send Message</button>
               </div>
             </div>
           </div>
-          <div class="col-12 room" v-if="ws != null">
-            <div class="input-group">
-              <input
-                v-model="roomInput"
-                class="form-control name"
-                placeholder="Type the room you want to join"
-                @keyup.enter.exact="joinRoom"
+        </div>
+        <div class="col-12 room" v-if="ws != null">
+          <div class="input-group">
+            <input
+             v-model="roomInput"
+             class="form-control name" 
+             placeholder="Type the room you want to join"
+              @keyup.enter.exact="joinRoom"
               ></input>
-              <div class="input-group-append">
-                <span class="input-group-text send_btn" @click="joinRoom">
+            <div class="input-group-append">
+              <span class="input-group-text send_btn" @click="joinRoom">
                 >
-                </span>
-              </div>
+              </span>
             </div>
           </div>
+        </div>
 
-          <div class="chat" v-for="(room, key) in rooms" :key="key">
-            <div class="card">
-              <div class="card-header msg_head">
-                <div class="d-flex bd-highlight justify-content-center">
-                  {{room.name}}
-                  <span class="card-close" @click="leaveRoom(room)">leave</span>
+        <div class="chat" v-for="(room, key) in rooms" :key="key">
+          <div class="card">
+            <div class="card-header msg_head">
+              <div class="d-flex bd-highlight justify-content-center">
+                {{room.name}}
+                <span class="card-close" @click="leaveRoom(room)">leave</span>
+              </div>
+            </div>
+            <div class="card-body msg_card_body">
+              <div 
+              v-for="(message, key) in room.messages"
+               :key="key" 
+               class="d-flex justify-content-start mb-4"
+               >
+                <div class="msg_cotainer">
+                  {{message.message}}
+                  <span class="msg_name" v-if="message.sender">{{message.sender.name}}</span>
                 </div>
               </div>
-              <div class="card-body msg_card_body">
-                <div
-                  v-for="(message, key) in room.messages"
-                  :key="key"
-                  class="d-flex justify-content-start mb-4"
-                >
-                  <div class="msg_cotainer">
-                    {{message.message}}
-                    <span class="msg_name" v-if="message.sender">{{message.sender.name}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="card-footer">
-                <div class="input-group">
-                  <textarea
-                    v-model="room.newMessage"
-                    name=""
-                    class="form-control type_msg"
-                    placeholder="Type your message..."
-                    @keyup.enter.exact="sendMessage(room)"
+            </div>
+            <div class="card-footer">
+              <div class="input-group">
+                <textarea 
+                v-model="room.newMessage" 
+                name=""
+                class="form-control type_msg"
+                placeholder="Type your message..."
+                  @keyup.enter.exact="sendMessage(room)"
                   ></textarea>
-                  <div class="input-group-append">
-                    <span class="input-group-text send_btn" @click="sendMessage(room)"
-                      >></span
-                    >
-                  </div>
+                <div class="input-group-append">
+                  <span class="input-group-text send_btn" @click="sendMessage(room)">></span>
                 </div>
               </div>
             </div>
@@ -111,7 +125,8 @@
         </div>
       </div>
     </div>
-  </body>
+  </div>
+</body>
 
-  <script src="assets/app.js"></script>
+<script src="assets/app.js"></script>
 </html>

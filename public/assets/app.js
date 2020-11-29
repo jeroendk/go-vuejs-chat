@@ -6,12 +6,16 @@ var app = new Vue({
     roomInput: null,
     rooms: [],
     user: {
-      name: ""
+      name: "",
+      username: "",
+      password: "",
+      token: ""
     },
     users: [],
     initialReconnectDelay: 1000,
     currentReconnectDelay: 0,
-    maxReconnectDelay: 16000
+    maxReconnectDelay: 16000,
+    loginError: ""
   },
   mounted: function () {
   },
@@ -19,8 +23,26 @@ var app = new Vue({
     connect() {
       this.connectToWebsocket();
     },
+    async login() {
+      try {
+        const result = await axios.post("http://" + location.host + '/api/login', this.user);
+        if (result.data.status !== "undefined" && result.data.status == "error") {
+          this.loginError = "Login failed";
+        } else {
+          this.user.token = result.data;
+          this.connectToWebsocket();
+        }
+      } catch (e) {
+        this.loginError = "Login failed";
+        console.log(e);
+      }
+    },
     connectToWebsocket() {
-      this.ws = new WebSocket(this.serverUrl + "?name=" + this.user.name);
+      if (this.user.token != "") {
+        this.ws = new WebSocket(this.serverUrl + "?bearer=" + this.user.token);
+      } else {
+        this.ws = new WebSocket(this.serverUrl + "?name=" + this.user.name);
+      }
       this.ws.addEventListener('open', (event) => { this.onWebsocketOpen(event) });
       this.ws.addEventListener('message', (event) => { this.handleNewMessage(event) });
       this.ws.addEventListener('close', (event) => { this.onWebsocketClose(event) });
@@ -78,12 +100,15 @@ var app = new Vue({
       }
     },
     handleUserJoined(msg) {
-      this.users.push(msg.sender);
+      if(!this.userExists(msg.sender)) {
+        this.users.push(msg.sender);
+      }
     },
     handleUserLeft(msg) {
       for (let i = 0; i < this.users.length; i++) {
         if (this.users[i].id == msg.sender.id) {
           this.users.splice(i, 1);
+          return;
         }
       }
     },
@@ -129,6 +154,14 @@ var app = new Vue({
     },
     joinPrivateRoom(room) {
       this.ws.send(JSON.stringify({ action: 'join-room-private', message: room.id }));
-    }
+    },
+    userExists(user) {
+      for (let i = 0; i < this.users.length; i++) {
+        if (this.users[i].id == user.id) {
+          return true;
+        }
+      }
+      return false;
+    } 
   }
 })

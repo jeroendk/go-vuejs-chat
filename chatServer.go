@@ -56,8 +56,11 @@ func (server *WsServer) Run() {
 }
 
 func (server *WsServer) registerClient(client *Client) {
-	// Add user to the repo
-	server.userRepository.AddUser(client)
+
+	if user := server.findUserByID(client.ID.String()); user == nil {
+		// Add user to the repo
+		server.userRepository.AddUser(client)
+	}
 
 	// Publish user in PubSub
 	server.publishClientJoined(client)
@@ -69,9 +72,6 @@ func (server *WsServer) registerClient(client *Client) {
 func (server *WsServer) unregisterClient(client *Client) {
 	if _, ok := server.clients[client]; ok {
 		delete(server.clients, client)
-
-		// Remove user from repo
-		server.userRepository.RemoveUser(client)
 
 		// Publish user left in PubSub
 		server.publishClientLeft(client)
@@ -135,11 +135,12 @@ func (server *WsServer) handleUserJoined(message Message) {
 }
 
 func (server *WsServer) handleUserLeft(message Message) {
-	// Remove the user from the slice
+	// Remove first occurrence of the user from the slice
 	for i, user := range server.users {
 		if user.GetId() == message.Sender.GetId() {
 			server.users[i] = server.users[len(server.users)-1]
 			server.users = server.users[:len(server.users)-1]
+			break
 		}
 	}
 
@@ -148,19 +149,23 @@ func (server *WsServer) handleUserLeft(message Message) {
 
 func (server *WsServer) handleUserJoinPrivate(message Message) {
 	// Find client for given user, if found add the user to the room.
-	targetClient := server.findClientByID(message.Message)
-	if targetClient != nil {
+	targetClients := server.findClientsByID(message.Message)
+	for _, targetClient := range targetClients {
 		targetClient.joinRoom(message.Target.GetName(), message.Sender)
 	}
 }
 
 func (server *WsServer) listOnlineClients(client *Client) {
+	var uniqueUsers = make(map[string]bool)
 	for _, user := range server.users {
-		message := &Message{
-			Action: UserJoinedAction,
-			Sender: user,
+		if ok := uniqueUsers[user.GetId()]; !ok {
+			message := &Message{
+				Action: UserJoinedAction,
+				Sender: user,
+			}
+			uniqueUsers[user.GetId()] = true
+			client.send <- message.encode()
 		}
-		client.send <- message.encode()
 	}
 }
 
@@ -235,14 +240,13 @@ func (server *WsServer) findUserByID(ID string) models.User {
 	return foundUser
 }
 
-func (server *WsServer) findClientByID(ID string) *Client {
-	var foundClient *Client
+func (server *WsServer) findClientsByID(ID string) []*Client {
+	var foundClients []*Client
 	for client := range server.clients {
 		if client.GetId() == ID {
-			foundClient = client
-			break
+			foundClients = append(foundClients, client)
 		}
 	}
 
-	return foundClient
+	return foundClients
 }
